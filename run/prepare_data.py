@@ -1,3 +1,6 @@
+import sys
+sys.path.append("/root/aicom/kagglep/kernels/yinhaojie/cmi-714/kaggle-child-mind-institute-detect-sleep-states")
+
 import shutil
 from pathlib import Path
 

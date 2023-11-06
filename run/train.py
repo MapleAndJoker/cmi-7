@@ -1,3 +1,6 @@
+import sys
+sys.path.append('/root/aicom/kagglep/kernels/yinhaojie/cmi-714/kaggle-child-mind-institute-detect-sleep-states')
+
 import logging
 from pathlib import Path
 
@@ -75,7 +78,7 @@ def main(cfg: DictConfig):  # type: ignore
     trainer.fit(model, datamodule=datamodule)
 
     # load best weights
-    model = model.load_from_checkpoint(
+    model = SegModel.load_from_checkpoint(
         checkpoint_cb.best_model_path,
         cfg=cfg,
         val_event_df=datamodule.valid_event_df,

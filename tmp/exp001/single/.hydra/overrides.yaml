@@ -1,0 +1,4 @@
+- downsample_rate=2
+- duration=5760
+- exp_name=exp001
+- batch_size=32
