@@ -25,6 +25,7 @@ logging.basicConfig(
 LOGGER = logging.getLogger(Path(__file__).name)
 
 
+#  Hydra 从 conf 目录中加载名为 train 的配置文件 即train.yaml
 @hydra.main(config_path="conf", config_name="train", version_base="1.2")
 def main(cfg: DictConfig):  # type: ignore
     seed_everything(cfg.seed)

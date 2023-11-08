@@ -78,6 +78,7 @@ def main(cfg: DictConfig):
                 Path(cfg.dir.data_dir) / f"{cfg.phase}_series.parquet",
                 low_memory=True,
             )
+            # 延迟读取的数据框架
         elif cfg.phase == "dev":
             series_lf = pl.scan_parquet(
                 Path(cfg.dir.processed_dir) / f"{cfg.phase}_series.parquet",

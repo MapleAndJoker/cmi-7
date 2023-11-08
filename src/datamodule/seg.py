@@ -27,6 +27,10 @@ def load_features(
 
     if series_ids is None:
         series_ids = [series_dir.name for series_dir in (processed_dir / phase).glob("*")]
+        '''
+        glob("*") 方法获取 processed_dir / phase 目录下的所有子目录（每个系列一个目录），并将它们的名称作为系列标识符列表
+        每个系列的数据都存储在以系列 ID 命名的文件夹中。
+        '''
 
     for series_id in series_ids:
         series_dir = processed_dir / phase / series_id
@@ -308,9 +312,11 @@ class SegDataModule(LightningDataModule):
         self.data_dir = Path(cfg.dir.data_dir)
         self.processed_dir = Path(cfg.dir.processed_dir)
         self.event_df = pl.read_csv(self.data_dir / "train_events.csv").drop_nulls()
+        #polars 的缩写 polars可提供类似于 pandas 的 API 但在某些情况下速度更快
         self.train_event_df = self.event_df.filter(
             pl.col("series_id").is_in(self.cfg.split.train_series_ids)
         )
+        #可在split处进行交叉验证 现在是固定划分
         self.valid_event_df = self.event_df.filter(
             pl.col("series_id").is_in(self.cfg.split.valid_series_ids)
         )
