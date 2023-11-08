@@ -42,6 +42,7 @@ def load_features(
     return features
 
 
+#将时间序列数据分割成长度为 duration 的连续块
 def load_chunk_features(
     duration: int,
     feature_names: list[str],
@@ -168,6 +169,11 @@ class TrainDataset(Dataset):
             .drop_nulls()
             .to_pandas()
         )
+        '''
+        每个“series_id”和“night”的组合将有一个行
+        每个“event”的唯一值将有一个列
+        而这些列中的数据将是对应的“step”值
+        '''
         self.features = features
         self.num_features = len(cfg.features)
         self.upsampled_num_frames = nearest_valid_size(

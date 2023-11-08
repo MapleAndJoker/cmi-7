@@ -37,8 +37,16 @@ ENMO_MEAN = 0.041315
 ENMO_STD = 0.101829
 
 
+'''
+处理周期性数据 时序数据
+时间特征具有明显的周期性，例如一天有24小时，一周有7天，一年有12个月等
+如果我们直接使用这些数值作为特征，模型可能会难以捕捉到这种周期性，因为它们的数值是线性的。
+例如，对于小时特征，23点和0点在数值上相差很大，但实际上它们在时间上是连续的。
+为了解决这个问题，我们可以使用三角函数将这些特征映射到一个圆上，这样周期的开始和结束就可以无缝连接了。
+'''
 def to_coord(x: pl.Expr, max_: int, name: str) -> list[pl.Expr]:
     rad = 2 * np.pi * (x % max_) / max_
+    # 正弦和余弦函数是在弧度制下定义的，需要将这个比例转换成弧度
     x_sin = rad.sin()
     x_cos = rad.cos()
 
@@ -46,6 +54,7 @@ def to_coord(x: pl.Expr, max_: int, name: str) -> list[pl.Expr]:
 
 
 def add_feature(series_df: pl.DataFrame) -> pl.DataFrame:
+    #with_columns: 添加新列
     series_df = series_df.with_columns(
         *to_coord(pl.col("timestamp").dt.hour(), 24, "hour"),
         *to_coord(pl.col("timestamp").dt.month(), 12, "month"),
@@ -99,6 +108,7 @@ def main(cfg: DictConfig):
             .sort(by=["series_id", "timestamp"])
         )
         n_unique = series_df.get_column("series_id").n_unique()
+    # 按序列标识符分组数据，对每个组添加特征，然后将这些特征保存
     with trace("Save features"):
         for series_id, this_series_df in tqdm(series_df.group_by("series_id"), total=n_unique):
             # 特徴量を追加
