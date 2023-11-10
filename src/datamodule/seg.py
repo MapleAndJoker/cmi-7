@@ -73,11 +73,14 @@ def load_chunk_features(
 ###################
 # Augmentation
 ###################
+#random_crop 函数的作用是在一个给定的时间序列中随机选择一段长度为 duration 的子序列
+# 这个子序列包含了一个特定的位置 pos
 def random_crop(pos: int, duration: int, max_end) -> tuple[int, int]:
     """Randomly crops with duration length including pos.
     However, 0<=start, end<=max_end
     """
     start = random.randint(max(0, pos - duration), min(pos, max_end - duration))
+    #既包含了指定的位置 pos，又不会超出整个时间序列的范围
     end = start + duration
     return start, end
 
@@ -124,6 +127,8 @@ def gaussian_label(label: np.ndarray, offset: int, sigma: int) -> np.ndarray:
     return label
 
 
+#negative_sampling 函数能够从时间序列中的非事件部分随机选择一个位置，作为负样本
+# 有助于模型学习区分事件和非事件，从而提高其在不平衡数据集上的表现。
 def negative_sampling(this_event_df: pd.DataFrame, num_steps: int) -> int:
     """negative sampling
 
@@ -143,6 +148,7 @@ def negative_sampling(this_event_df: pd.DataFrame, num_steps: int) -> int:
 ###################
 # Dataset
 ###################
+#帮助调整输入数据的大小，以确保它们适合特定的网络架构要求
 def nearest_valid_size(input_size: int, downsample_rate: int) -> int:
     """
     (x // hop_length) % 32 == 0
@@ -185,17 +191,21 @@ class TrainDataset(Dataset):
 
     def __getitem__(self, idx):
         event = np.random.choice(["onset", "wakeup"], p=[0.5, 0.5])
+        #随机选择 "onset"（入睡事件）或 "wakeup"（醒来事件）中的一个，两者被选择的概率均为 50%。
         pos = self.event_df.at[idx, event]
         series_id = self.event_df.at[idx, "series_id"]
         self.event_df["series_id"]
         this_event_df = self.event_df.query("series_id == @series_id").reset_index(drop=True)
+        #某个序列的csv
         # extract data matching series_id
         this_feature = self.features[series_id]  # (n_steps, num_features)
         n_steps = this_feature.shape[0]
 
         # sample background
+        #随机数小于背景采样率
         if random.random() < self.cfg.bg_sampling_rate:
             pos = negative_sampling(this_event_df, n_steps)
+            #pos 被重新赋值为一个背景（非事件）位置
 
         # crop
         start, end = random_crop(pos, self.cfg.duration, n_steps)
@@ -203,6 +213,13 @@ class TrainDataset(Dataset):
 
         # upsample
         feature = torch.FloatTensor(feature.T).unsqueeze(0)  # (1, num_features, duration)
+        '''
+        crop是从整个时间序列中选择一个特定长度的子序列的过程
+        上采样是指增加数据的采样点数，通常用于提高数据的时间分辨率
+        原始的裁剪子序列 feature 在时间轴上有固定的点数，等于 self.cfg.duration
+        上采样过程不是增加原始数据点，而是在现有数据点之间插入新的数据点，从而增加采样点的数量。这是通过插值算法实现的
+        上采样的目的通常是为了使数据与特定的处理流程或模型结构兼容。
+        '''
         feature = resize(
             feature,
             size=[self.num_features, self.upsampled_num_frames],
