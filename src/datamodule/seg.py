@@ -99,6 +99,16 @@ def get_label(
     for onset, wakeup in this_event_df[["onset", "wakeup"]].to_numpy():
         onset = int((onset - start) / duration * num_frames)
         wakeup = int((wakeup - start) / duration * num_frames)
+        '''
+        这一步将 onset  wakeup时间点转换为相对于数据块（由 start 到 end）的位置
+        duration 数据块长度
+
+        num_frames: 这通常是经过处理（如上采样或下采样）后的数据块中的帧数。
+        num_frames 是根据上采样或下采样的比率计算得出的
+        例如，如果原始数据（duration 长度的数据）被上采样或下采样，num_frames 将表示处理后数据块的帧数。
+
+        将 onset 和 wakeup 时间点从整个时间序列的上下文中转换为相对于当前处理的数据块（子序列）的位置
+        '''
         if onset >= 0 and onset < num_frames:
             label[onset, 1] = 1
         if wakeup < num_frames and wakeup >= 0:
@@ -107,11 +117,20 @@ def get_label(
         onset = max(0, onset)
         wakeup = min(num_frames, wakeup)
         label[onset:wakeup, 0] = 1  # sleep
+        '''
+        每个标签由一个三维向量表示，分别对应于睡眠、入睡和醒来。
+        然后，这个函数根据事件的发生时间（onset、wakeup）来填充这个标签数组。
+        如果一个事件（入睡或醒来）在所选区间内发生，相应的标签位置被设置为 1。
+        此外，从入睡时间到醒来时间之间的所有帧都被标记为睡眠（第一个维度）。
+        '''
 
     return label
 
 
 # ref: https://www.kaggle.com/competitions/dfl-bundesliga-data-shootout/discussion/360236#2004730
+# 高斯核生成：这个函数生成了一个高斯（正态分布）核。这个核是用来平滑数据的
+# 其中 sigma 表示高斯分布的标准差，决定了平滑的程度，而 length 决定了核的长度 
+# 高斯核是一维的
 def gaussian_kernel(length: int, sigma: int = 3) -> np.ndarray:
     x = np.ogrid[-length : length + 1]
     h = np.exp(-(x**2) / (2 * sigma * sigma))  # type: ignore
@@ -123,6 +142,11 @@ def gaussian_label(label: np.ndarray, offset: int, sigma: int) -> np.ndarray:
     num_events = label.shape[1]
     for i in range(num_events):
         label[:, i] = np.convolve(label[:, i], gaussian_kernel(offset, sigma), mode="same")
+        '''
+        卷积是一种数学运算，用于将两个信号（在这里是标签向量和高斯核）结合起来
+        通过卷积操作，原始的硬标签（在这种情况下是二进制标签，如 0 或 1，表示没有事件或事件发生）被转换为平滑的、连续的值
+        这可以提供更丰富的信息，特别是对于模型学习边界情况或不确定性时。
+        '''
 
     return label
 
@@ -190,6 +214,11 @@ class TrainDataset(Dataset):
         return len(self.event_df)
 
     def __getitem__(self, idx):
+        '''
+        由于 event_df 是通过 pivot 方法从原始 DataFrame 转换而来，并且其索引设置为 ["series_id", "night"] 的组合
+        这意味着 idx 实际上是对 series_id 和 night 的组合索引的引用。
+        每个 idx 标识了一个独特的序列及其在特定夜晚的数据，其中包含了这一夜的各种事件（如“入睡”、“醒来”等）的时间步骤。
+        '''
         event = np.random.choice(["onset", "wakeup"], p=[0.5, 0.5])
         #随机选择 "onset"（入睡事件）或 "wakeup"（醒来事件）中的一个，两者被选择的概率均为 50%。
         pos = self.event_df.at[idx, event]
@@ -228,11 +257,21 @@ class TrainDataset(Dataset):
 
         # from hard label to gaussian label
         num_frames = self.upsampled_num_frames // self.cfg.downsample_rate
+        # 在创建标签时，需要一个与上采样后数据长度相匹配的标签数组。
+        # 这个标签数组需要与数据的时间分辨率相对应，以便每个时间点都有一个标签
+        # num_frames 就是这个标签数组的长度。
+        #在保持数据详细度的同时，使其适应特定模型结构
+        
         label = get_label(this_event_df, num_frames, self.cfg.duration, start, end)
         label[:, [1, 2]] = gaussian_label(
             label[:, [1, 2]], offset=self.cfg.offset, sigma=self.cfg.sigma
         )
-
+        '''
+        标签平滑的应用不仅限于单个事件（如入睡或醒来），而是同时考虑所有相关事件。
+        通过应用高斯平滑（或高斯核卷积），我们能够使每个事件标签在其周围的时间点上展现出渐进的变化，而不是一个突然的跳变。
+        这种方法更好地反映了现实世界中事件的逐渐变化特性，有助于提高模型的性能和泛化能力。
+        模型能够更好地学习事件周围的上下文信息，而不是仅仅专注于特定的时间点。
+        '''
         return {
             "series_id": series_id,
             "feature": feature,  # (num_features, upsampled_num_frames)
