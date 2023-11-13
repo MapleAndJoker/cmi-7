@@ -23,9 +23,15 @@ class CNNSpectrogram(nn.Module):
         self.sigmoid = sigmoid
         if isinstance(base_filters, int):
             base_filters = tuple([base_filters])
+        '''
+        base_filters 用于确定卷积层中的过滤器（或称为“卷积核”）数量
+        如果 base_filters 是一个整数，这表示所有卷积层将使用相同数量的过滤器。tuple([base_filters])将其转换为一个元组
+        如果 base_filters 是一个元组，表示在同一个卷积块内的连续卷积层之间的过滤器数量。
+        '''
         self.height = base_filters[-1]
         self.spec_conv = nn.ModuleList()
         for i in range(self.out_chans):
+        #对于每一个i（输出通道）对应的卷积块 分别加上basefilter长度对应的卷积层
             tmp_block = [
                 conv(
                     in_channels,
@@ -76,6 +82,7 @@ class CNNSpectrogram(nn.Module):
         out: list[torch.Tensor] = []
         for i in range(self.out_chans):
             out.append(self.spec_conv[i](x))
+            #分别对输出通道作用
         img = torch.stack(out, dim=1)  # (batch_size, out_chans, height, time_steps)
         if self.out_size is not None:
             img = self.pool(img)  # (batch_size, out_chans, height, out_size)
