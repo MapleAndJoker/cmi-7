@@ -251,6 +251,14 @@ class UNet1DDecoder(nn.Module):
             nn.Conv1d(64, self.n_classes, kernel_size=1, padding=0),
             nn.Dropout(dropout),
         )
+        '''
+        即使是在分类任务的最后阶段，Dropout层的使用仍然是有意义的：
+        1 降低过拟合风险：即使在网络的深层部分，特别是在分类器部分，过拟合依然可能发生。Dropout可以减轻这种风险。
+        2 强化特征的鲁棒性：由于Dropout导致网络的一部分神经元不参与每次的前向传播，
+        因此网络需要学习更加鲁棒的特征表达，以便在部分输入信息缺失的情况下也能进行有效的分类。
+        3 模拟集成学习：Dropout的一个有趣解释是，它在每次前向传播时都会生成一个略有不同的网络。
+        这相当于在训练过程中对多个不同的网络版本进行平均，类似于集成学习中的模型平均。
+        '''
         self.loss_fn = nn.BCEWithLogitsLoss()
 
     def forward(
