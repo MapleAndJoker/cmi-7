@@ -21,6 +21,7 @@ def get_rand_1dbbox(n_timesteps: int, lam: float) -> tuple[int, int]:
     return start, end
 
 
+# Cutmix 增强通过在图像的不同部分引入来自其他图像的片段，迫使模型学习注意图像的不同区域。
 class Cutmix:
     def __init__(self, alpha: float = 0.4):
         self.alpha = alpha

@@ -2,6 +2,7 @@ import numpy as np
 import torch
 
 
+# 混合不同样本的图像和标签
 class Mixup:
     def __init__(self, alpha: float = 0.4):
         self.alpha = alpha
